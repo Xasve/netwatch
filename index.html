@@ -144,75 +144,142 @@
   </div>
 </header>
 <div id="main-content">
-  <div class="loading">
-    <div class="loading-spinner"></div>
-    Conectando a Cloudflare Status API...
-  </div>
+  <div class="loading"><div class="loading-spinner"></div>Conectando a Cloudflare Status API...</div>
 </div>
 <footer class="footer">
   <span>NetWatch — Datos de <a href="https://www.cloudflarestatus.com/api" target="_blank">cloudflarestatus.com/api</a></span>
   <span>Actualización automática cada 2 minutos</span>
 </footer>
 <script>
-  const API_BASE = 'https://summer-fire-a5cb.ethan-barboza10.workers.dev';
-  let allComponents = [], currentFilter = 'all';
-  const statusLabels = { operational:'Operativo', degraded_performance:'Degradado', partial_outage:'Interrupción parcial', major_outage:'Caída mayor', under_maintenance:'Mantenimiento' };
-  const indicatorIcons = { none:'✓', minor:'▲', major:'▲', critical:'●' };
-  async function fetchJSON(path) {
-    const res = await fetch(API_BASE + path);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
+const API_BASE = 'https://summer-fire-a5cb.ethan-barboza10.workers.dev';
+let allComponents = [], currentFilter = 'all';
+const SL = {operational:'Operativo',degraded_performance:'Degradado',partial_outage:'Interrupción parcial',major_outage:'Caída mayor',under_maintenance:'Mantenimiento'};
+const II = {none:'✓',minor:'▲',major:'▲',critical:'●'};
+
+async function fetchJSON(path) {
+  const res = await fetch(API_BASE + path);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function loadAll() {
+  const btn = document.querySelector('.rbtn');
+  if (btn) btn.innerHTML = '<span class="spin">↻</span> Actualizando';
+  document.getElementById('upd-time').textContent = 'Actualizando...';
+  try {
+    const [s, i, m] = await Promise.all([
+      fetchJSON('/summary.json'),
+      fetchJSON('/incidents/unresolved.json'),
+      fetchJSON('/scheduled-maintenances/upcoming.json')
+    ]);
+    allComponents = s.components.filter(c => !c.group);
+    renderAll(s, i, m);
+    document.getElementById('upd-time').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-CR',{hour12:false});
+  } catch(e) {
+    document.getElementById('main-content').innerHTML = '<div class="err-box"><div class="err-title">No se pudo conectar a la API (' + e.message + ')</div><div class="err-sub">El Worker proxy no está respondiendo.<br>Verifica en: <a href="https://workers.cloudflare.com" target="_blank">workers.cloudflare.com</a><br><br>O consulta: <a href="https://www.cloudflarestatus.com" target="_blank">→ cloudflarestatus.com</a></div></div>';
   }
-  async function loadAll() {
-    const btn = document.querySelector('.rbtn');
-    if (btn) btn.innerHTML = '<span class="spin">↻</span> Actualizando';
-    document.getElementById('upd-time').textContent = 'Actualizando...';
-    try {
-      const [summary, incidents, maint] = await Promise.all([
-        fetchJSON('/summary.json'),
-        fetchJSON('/incidents/unresolved.json'),
-        fetchJSON('/scheduled-maintenances/upcoming.json')
-      ]);
-      allComponents = summary.components.filter(c => !c.group);
-      renderAll(summary, incidents, maint);
-      document.getElementById('upd-time').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-CR', {hour12:false});
-    } catch(e) {
-      document.getElementById('main-content').innerHTML = '<div class="err-box"><div class="err-title">No se pudo conectar a la API (' + e.message + ')</div><div class="err-sub">El Worker proxy no está respondiendo.<br>Verifica en: <a href="https://workers.cloudflare.com" target="_blank">workers.cloudflare.com</a><br><br>O consulta directamente: <a href="https://www.cloudflarestatus.com" target="_blank">→ cloudflarestatus.com</a></div></div>';
-    }
-    if (btn) btn.innerHTML = '↻ Actualizar';
+  if (btn) btn.innerHTML = '↻ Actualizar';
+}
+
+function renderAll(s, i, m) {
+  const ind = s.status.indicator, desc = s.status.description;
+  const comps = s.components.filter(c => !c.group);
+  const cOp = comps.filter(c => c.status === 'operational').length;
+  const cDeg = comps.filter(c => ['degraded_performance','partial_outage'].includes(c.status)).length;
+  const cDown = comps.filter(c => c.status === 'major_outage').length;
+
+  let html = '<div class="summary">'
+    + '<div class="scard ok"><div class="slabel">Operativos</div><div class="sval">' + cOp + '</div></div>'
+    + '<div class="scard warn"><div class="slabel">Degradados</div><div class="sval">' + cDeg + '</div></div>'
+    + '<div class="scard err"><div class="slabel">Caídos</div><div class="sval">' + cDown + '</div></div>'
+    + '<div class="scard cf"><div class="slabel">Monitoreados</div><div class="sval">' + comps.length + '</div><div class="sdesc">cloudflarestatus.com</div></div>'
+    + '</div>';
+
+  html += '<div class="overall ' + ind + '">'
+    + '<span class="overall-icon">' + (II[ind]||'●') + '</span>'
+    + '<div><div class="overall-title">' + desc + '</div>'
+    + '<div class="overall-sub">cloudflarestatus.com · Indicador: ' + ind.toUpperCase() + '</div></div>'
+    + '<a class="cf-link" href="https://www.cloudflarestatus.com" target="_blank">Ver oficial ↗</a></div>';
+
+  if (i.incidents && i.incidents.length > 0) {
+    html += '<div class="inc-wrap"><div class="inc-hdr"><div class="live-dot" style="background:var(--red)"></div>'
+      + '<div class="inc-title">Incidentes activos</div>'
+      + '<div class="inc-tag">' + i.incidents.length + ' ACTIVO' + (i.incidents.length > 1 ? 'S' : '') + '</div></div>';
+    i.incidents.forEach(function(inc) {
+      var last = inc.incident_updates && inc.incident_updates[0];
+      html += '<div class="inc-item"><div class="inc-name">' + inc.name + '</div>'
+        + (last ? '<div class="inc-body"><span class="inc-status">' + inc.status.toUpperCase() + '</span>'
+        + last.body.slice(0,280) + (last.body.length > 280 ? '...' : '') + '</div>' : '')
+        + '</div>';
+    });
+    html += '</div>';
   }
-  function renderAll(summary, incidents, maint) {
-    const ind = summary.status.indicator, desc = summary.status.description;
-    const comps = summary.components.filter(c => !c.group);
-    const cOp = comps.filter(c => c.status === 'operational').length;
-    const cDeg = comps.filter(c => ['degraded_performance','partial_outage'].includes(c.status)).length;
-    const cDown = comps.filter(c => c.status === 'major_outage').length;
-    let html = '<div class="summary"><div class="scard ok"><div class="slabel">Operativos</div><div class="sval">' + cOp + '</div></div><div class="scard warn"><div class="slabel">Degradados</div><div class="sval">' + cDeg + '</div></div><div class="scard err"><div class="slabel">Caídos</div><div class="sval">' + cDown + '</div></div><div class="scard cf"><div class="slabel">Monitoreados</div><div class="sval">' + comps.length + '</div><div class="sdesc">cloudflarestatus.com</div></div></div>';
-    html += '<div class="overall ' + ind + '"><span class="overall-icon">' + (indicatorIcons[ind]||'●') + '</span><div><div class="overall-title">' + desc + '</div><div class="overall-sub">cloudflarestatus.com · Indicador: ' + ind.toUpperCase() + '</div></div><a class="cf-link" href="https://www.cloudflarestatus.com" target="_blank">Ver oficial ↗</a></div>';
-    if (incidents.incidents?.length > 0) {
-      html += '<div class="inc-wrap"><div class="inc-hdr"><div class="live-dot" style="background:var(--red)"></div><div class="inc-title">Incidentes activos</div><div class="inc-tag">' + incidents.incidents.length + ' ACTIVO' + (incidents.incidents.length > 1 ? 'S' : '') + '</div></div>';
-      incidents.incidents.forEach(inc => { const last = inc.incident_updates?.[0]; html += '<div class="inc-item"><div class="inc-name">' + inc.name + '</div>' + (last ? '<div class="inc-body"><span class="inc-status">' + inc.status.toUpperCase() + '</span>' + last.body.slice(0,280) + (last.body.length>280?'...':'') + '</div>' : '') + '</div>'; });
-      html += '</div>';
-    }
-    if (maint.scheduled_maintenances?.length > 0) {
-      html += '<div class="maint-wrap"><div class="maint-hdr"><div class="cdot under_maintenance"></div><div class="maint-title">Mantenimientos programados (' + maint.scheduled_maintenances.length + ')</div></div>';
-      maint.scheduled_maintenances.slice(0,5).forEach(m => { const d = m.scheduled_for ? new Date(m.scheduled_for).toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'TBD'; html += '<div class="maint-item">▸ ' + m.name + ' · ' + d + '</div>'; });
-      html += '</div>';
-    }
-    html += '<div class="fbar"><span class="flabel">Filtrar:</span><button class="fbtn active" onclick="setFilter('all',this)">Todos</button><button class="fbtn" onclick="setFilter('major_outage',this)">Caídos</button><button class="fbtn" onclick="setFilter('degraded',this)">Degradados</button><button class="fbtn" onclick="setFilter('operational',this)">Operativos</button><button class="fbtn" onclick="setFilter('under_maintenance',this)">Mantenimiento</button><div class="srch"><span class="sicon">⌕</span><input class="sinput" id="search-box" type="text" placeholder="Buscar componente..." oninput="renderComponents()"></div></div><div class="cwrap" id="comp-wrap"></div>';
-    document.getElementById('main-content').innerHTML = html;
-    allComponents = comps; renderComponents();
+
+  if (m.scheduled_maintenances && m.scheduled_maintenances.length > 0) {
+    html += '<div class="maint-wrap"><div class="maint-hdr"><div class="cdot under_maintenance"></div>'
+      + '<div class="maint-title">Mantenimientos programados (' + m.scheduled_maintenances.length + ')</div></div>';
+    m.scheduled_maintenances.slice(0,5).forEach(function(mt) {
+      var d = mt.scheduled_for ? new Date(mt.scheduled_for).toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'TBD';
+      html += '<div class="maint-item">▸ ' + mt.name + ' · ' + d + '</div>';
+    });
+    html += '</div>';
   }
-  function setFilter(f, btn) { currentFilter = f; document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderComponents(); }
-  function renderComponents() {
-    const q = (document.getElementById('search-box')?.value || '').toLowerCase();
-    const wrap = document.getElementById('comp-wrap'); if (!wrap) return;
-    const filtered = allComponents.filter(c => { const mF = currentFilter==='all' || c.status===currentFilter || (currentFilter==='degraded' && ['degraded_performance','partial_outage'].includes(c.status)); return mF && c.name.toLowerCase().includes(q); });
-    if (!filtered.length) { wrap.innerHTML = '<div class="no-res">No se encontraron componentes</div>'; return; }
-    const groups = {}; filtered.forEach(c => { const key = c.group_id ? (allComponents.find(x => x.id===c.group_id)?.name||'Otros') : 'General'; (groups[key]=groups[key]||[]).push(c); });
-    wrap.innerHTML = Object.entries(groups).map(([cat,items]) => '<div class="cat-title">'+cat+'</div><div class="cgrid">'+items.map(c => '<div class="ccard s-'+c.status+'"><div class="ccard-h"><div class="cname">'+c.name+'</div><div class="cbadge '+c.status+'"><div class="cdot '+c.status+'"></div>'+(statusLabels[c.status]||c.status)+'</div></div><div class="cupdated">Actualizado: '+new Date(c.updated_at).toLocaleString('es-CR',{hour12:false,hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'})+'</div></div>').join('')+'</div>').join('');
-  }
-  loadAll(); setInterval(loadAll, 120000);
+
+  html += '<div class="fbar">'
+    + '<span class="flabel">Filtrar:</span>'
+    + '<button class="fbtn active" onclick="setFilter(this, &quot;all&quot;)">Todos</button>'
+    + '<button class="fbtn" onclick="setFilter(this, &quot;major_outage&quot;)">Caídos</button>'
+    + '<button class="fbtn" onclick="setFilter(this, &quot;degraded&quot;)">Degradados</button>'
+    + '<button class="fbtn" onclick="setFilter(this, &quot;operational&quot;)">Operativos</button>'
+    + '<button class="fbtn" onclick="setFilter(this, &quot;under_maintenance&quot;)">Mantenimiento</button>'
+    + '<div class="srch"><span class="sicon">⌕</span>'
+    + '<input class="sinput" id="search-box" type="text" placeholder="Buscar componente..." oninput="renderComponents()"></div>'
+    + '</div>'
+    + '<div class="cwrap" id="comp-wrap"></div>';
+
+  document.getElementById('main-content').innerHTML = html;
+  allComponents = comps;
+  renderComponents();
+}
+
+function setFilter(btn, f) {
+  currentFilter = f;
+  document.querySelectorAll('.fbtn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderComponents();
+}
+
+function renderComponents() {
+  var q = (document.getElementById('search-box') ? document.getElementById('search-box').value : '').toLowerCase();
+  var wrap = document.getElementById('comp-wrap');
+  if (!wrap) return;
+  var filtered = allComponents.filter(function(c) {
+    var mF = currentFilter === 'all' || c.status === currentFilter
+      || (currentFilter === 'degraded' && (c.status === 'degraded_performance' || c.status === 'partial_outage'));
+    return mF && c.name.toLowerCase().indexOf(q) >= 0;
+  });
+  if (!filtered.length) { wrap.innerHTML = '<div class="no-res">No se encontraron componentes</div>'; return; }
+  var groups = {};
+  filtered.forEach(function(c) {
+    var key = c.group_id ? (allComponents.find(function(x){ return x.id === c.group_id; }) || {name:'Otros'}).name : 'General';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(c);
+  });
+  wrap.innerHTML = Object.keys(groups).map(function(cat) {
+    return '<div class="cat-title">' + cat + '</div><div class="cgrid">'
+      + groups[cat].map(function(c) {
+          return '<div class="ccard s-' + c.status + '">'
+            + '<div class="ccard-h"><div class="cname">' + c.name + '</div>'
+            + '<div class="cbadge ' + c.status + '"><div class="cdot ' + c.status + '"></div>' + (SL[c.status] || c.status) + '</div></div>'
+            + '<div class="cupdated">Actualizado: ' + new Date(c.updated_at).toLocaleString('es-CR',{hour12:false,hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}) + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div>';
+  }).join('');
+}
+
+loadAll();
+setInterval(loadAll, 120000);
 </script>
 </body>
 </html>
