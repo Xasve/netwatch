@@ -6,3 +6,265 @@
   <title>NetWatch - Monitor de Estado</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--bg:#0a0c0f;--surface:#10141a;--surface2:#161c25;--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.13);--text:#e2e8f0;--muted:#64748b;--green:#22d3a0;--green-bg:rgba(34,211,160,.08);--red:#f87171;--red-bg:rgba(248,113,113,.08);--yellow:#fbbf24;--yellow-bg:rgba(251,191,36,.08);--blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);--accent:#f38020}
+    body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+    a{color:inherit;text-decoration:none}
+    .hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo-box{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .logo-box svg{width:18px;height:18px}
+    .logo-name{font-size:16px;font-weight:800;letter-spacing:-.3px}
+    .logo-name span{color:var(--accent);font-size:12px;font-weight:400;margin-left:4px}
+    .logo-sub{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px}
+    .hdr-r{display:flex;align-items:center;gap:14px}
+    .live-badge{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);background:var(--green-bg);border:1px solid rgba(34,211,160,.2);padding:5px 12px;border-radius:20px}
+    .live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .upd{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+    .rbtn{background:none;border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .15s}
+    .rbtn:hover{border-color:var(--border2);color:var(--text)}
+    .tabs{display:flex;gap:4px;padding:20px 28px 0;border-bottom:1px solid var(--border)}
+    .tab-btn{background:none;border:none;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+    .tab-btn:hover{color:var(--text)}
+    .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+    .summary{padding:20px 28px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .scard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden}
+    .scard::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px}
+    .scard.ok::before{background:var(--green)}.scard.warn::before{background:var(--yellow)}.scard.err::before{background:var(--red)}.scard.cf::before{background:var(--accent)}
+    .slabel{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+    .sval{font-size:26px;font-weight:800}
+    .scard.ok .sval{color:var(--green)}.scard.warn .sval{color:var(--yellow)}.scard.err .sval{color:var(--red)}.scard.cf .sval{color:var(--accent)}
+    .sdesc{font-size:10px;color:var(--muted);margin-top:3px;font-family:'JetBrains Mono',monospace}
+    .overall{margin:0 28px 16px;padding:14px 18px;border-radius:10px;display:flex;align-items:center;gap:14px}
+    .overall.none{background:rgba(34,211,160,.06);border:1px solid rgba(34,211,160,.2)}
+    .overall.minor{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2)}
+    .overall.major{background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.2)}
+    .overall.critical{background:rgba(248,113,113,.09);border:1px solid rgba(248,113,113,.4)}
+    .overall-icon{font-size:20px;flex-shrink:0}
+    .overall-title{font-size:14px;font-weight:700}
+    .overall.none .overall-title{color:var(--green)}.overall.minor .overall-title{color:var(--yellow)}
+    .overall.major .overall-title,.overall.critical .overall-title{color:var(--red)}
+    .overall-sub{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:3px}
+    .cf-link{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);border:1px solid rgba(243,128,32,.3);padding:6px 12px;border-radius:6px;white-space:nowrap;transition:border-color .15s}
+    .cf-link:hover{border-color:var(--accent)}
+    .inc-wrap{margin:0 28px 16px;background:var(--red-bg);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:16px 18px}
+    .inc-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .inc-title{font-size:13px;font-weight:700;color:var(--red)}
+    .inc-tag{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--red);background:rgba(248,113,113,.12);padding:2px 8px;border-radius:3px}
+    .inc-item{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.05)}
+    .inc-item:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+    .inc-name{font-size:12px;font-weight:700;color:var(--red);margin-bottom:4px}
+    .inc-status{display:inline-block;font-size:9px;font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:3px;background:rgba(251,191,36,.12);color:var(--yellow);margin-right:6px}
+    .inc-body{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.6}
+    .maint-wrap{margin:0 28px 16px;background:var(--blue-bg);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:14px 18px}
+    .maint-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    .maint-title{font-size:12px;font-weight:700;color:var(--blue)}
+    .maint-item{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:3px 0;line-height:1.5}
+    .fbar{padding:0 28px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .flabel{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-right:4px}
+    .fbtn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .15s}
+    .fbtn:hover{border-color:var(--border2);color:var(--text)}
+    .fbtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .srch{position:relative;margin-left:auto}
+    .sinput{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 12px 6px 28px;border-radius:6px;outline:none;width:200px;transition:border-color .15s}
+    .sinput:focus{border-color:var(--border2)}.sinput::placeholder{color:var(--muted)}
+    .sicon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px}
+    .cwrap{padding:0 28px 32px}
+    .cat-title{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;margin:20px 0 10px;display:flex;align-items:center;gap:10px}
+    .cat-title::after{content:'';flex:1;height:1px;background:var(--border)}
+    .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+    .ccard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 16px;transition:border-color .15s,background .15s}
+    .ccard:hover{border-color:var(--border2);background:var(--surface2)}
+    .ccard.s-operational{border-left:3px solid var(--green)}
+    .ccard.s-degraded_performance,.ccard.s-partial_outage{border-left:3px solid var(--yellow)}
+    .ccard.s-major_outage{border-left:3px solid var(--red)}
+    .ccard.s-under_maintenance{border-left:3px solid var(--blue)}
+    .ccard-h{display:flex;align-items:center;justify-content:space-between}
+    .cname{font-size:13px;font-weight:600}
+    .cbadge{display:flex;align-items:center;gap:5px;font-size:9px;font-family:'JetBrains Mono',monospace;padding:3px 9px;border-radius:4px}
+    .cbadge.operational{color:var(--green);background:var(--green-bg)}
+    .cbadge.degraded_performance,.cbadge.partial_outage{color:var(--yellow);background:var(--yellow-bg)}
+    .cbadge.major_outage{color:var(--red);background:var(--red-bg)}
+    .cbadge.under_maintenance{color:var(--blue);background:var(--blue-bg)}
+    .cdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+    .cdot.operational{background:var(--green);animation:pulse 2s infinite}
+    .cdot.degraded_performance,.cdot.partial_outage{background:var(--yellow);animation:pulse 1.5s infinite}
+    .cdot.major_outage{background:var(--red)}.cdot.under_maintenance{background:var(--blue)}
+    .cupdated{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:5px}
+    .games-wrap{padding:20px 28px 32px}
+    .game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:14px}
+    .game-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .15s,background .15s}
+    .game-card:hover{border-color:var(--border2);background:var(--surface2)}
+    .game-header{display:flex;align-items:center;gap:12px;padding:14px 16px 10px}
+    .game-logo{width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .game-info{flex:1;min-width:0}
+    .game-name{font-size:14px;font-weight:700}
+    .game-status-text{font-size:10px;font-family:'JetBrains Mono',monospace;margin-top:2px}
+    .game-status-text.none{color:var(--green)}
+    .game-status-text.minor{color:var(--yellow)}
+    .game-status-text.major,.game-status-text.critical{color:var(--red)}
+    .game-indicator{display:flex;align-items:center;gap:5px;font-size:10px;font-family:'JetBrains Mono',monospace;padding:4px 10px;border-radius:20px;flex-shrink:0}
+    .game-indicator.none{color:var(--green);background:var(--green-bg);border:1px solid rgba(34,211,160,.2)}
+    .game-indicator.minor{color:var(--yellow);background:var(--yellow-bg);border:1px solid rgba(251,191,36,.2)}
+    .game-indicator.major,.game-indicator.critical{color:var(--red);background:var(--red-bg);border:1px solid rgba(248,113,113,.2)}
+    .game-bar{height:3px;margin:0 16px 14px;background:rgba(255,255,255,.04);border-radius:2px;overflow:hidden}
+    .game-bar-fill{height:100%;border-radius:2px;transition:width .8s}
+    .game-bar-fill.none{background:var(--green)}
+    .game-bar-fill.minor{background:var(--yellow)}
+    .game-bar-fill.major,.game-bar-fill.critical{background:var(--red)}
+    .game-link{display:block;padding:6px 16px 12px;font-size:10px;color:var(--accent);font-family:'JetBrains Mono',monospace;opacity:.7;transition:opacity .15s}
+    .game-link:hover{opacity:1}
+    .game-skeleton{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;height:100px;display:flex;align-items:center;gap:12px}
+    .skeleton-box{background:rgba(255,255,255,.05);border-radius:6px;animation:shimmer 1.5s infinite}
+    @keyframes shimmer{0%,100%{opacity:.5}50%{opacity:1}}
+    .games-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
+    .loading{text-align:center;padding:80px 20px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted)}
+    .loading-spinner{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .err-box{margin:28px;background:var(--red-bg);border:1px solid rgba(248,113,113,.2);border-radius:12px;padding:24px}
+    .err-title{font-size:14px;color:var(--red);font-weight:700;margin-bottom:8px}
+    .err-sub{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.8}
+    .err-sub a{color:var(--accent)}
+    .no-res{text-align:center;padding:40px;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:12px}
+    .spin{animation:spin .8s linear infinite;display:inline-block}
+    .footer{border-top:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+    .footer a{color:var(--accent)}
+    @media(max-width:700px){
+      .hdr,.cwrap,.games-wrap,.footer,.fbar{padding-left:16px;padding-right:16px}
+      .summary{grid-template-columns:repeat(2,1fr);padding:16px}
+      .games-summary{grid-template-columns:repeat(2,1fr)}
+      .overall,.inc-wrap,.maint-wrap{margin-left:16px;margin-right:16px}
+      .cgrid,.game-grid{grid-template-columns:1fr}
+      .srch{display:none}
+      .footer{flex-direction:column;gap:6px;text-align:center}
+      .tabs{padding:16px 16px 0}
+    }
+  </style>
+</head>
+<body>
+<header class="hdr">
+  <div class="logo">
+    <div class="logo-box">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13.5 12.5c.9-1.4 1.5-3 1.5-4.5C15 5.4 12.8 3 10 3S5 5.4 5 8c0 1.5.6 3.1 1.5 4.5l-1 2h9l-1-2z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M7.5 14.5h5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="10" cy="8" r="1.5" fill="white"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-name">NetWatch <span>Monitor de Estado</span></div>
+      <div class="logo-sub">CLOUDFLARE + SERVIDORES DE JUEGOS - EN TIEMPO REAL</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <span class="upd" id="upd-time">Cargando...</span>
+    <div class="live-badge"><div class="live-dot"></div>EN VIVO</div>
+    <button class="rbtn" onclick="refreshAll()">Actualizar</button>
+  </div>
+</header>
+<div class="tabs">
+  <button class="tab-btn active" id="tab-cf" onclick="switchTab('cf')">&#9729; Cloudflare</button>
+  <button class="tab-btn" id="tab-games" onclick="switchTab('games')">&#127918; Juegos</button>
+</div>
+<div class="tab-content active" id="content-cf">
+  <div id="cf-main"><div class="loading"><div class="loading-spinner"></div>Conectando a Cloudflare Status API...</div></div>
+</div>
+<div class="tab-content" id="content-games">
+  <div class="games-wrap">
+    <div class="games-summary">
+      <div class="scard ok"><div class="slabel">Operativos</div><div class="sval" id="g-ok">--</div></div>
+      <div class="scard warn"><div class="slabel">Con problemas</div><div class="sval" id="g-warn">--</div></div>
+      <div class="scard err"><div class="slabel">Caidos</div><div class="sval" id="g-down">--</div></div>
+    </div>
+    <div class="game-grid" id="game-grid">
+      <div class="game-skeleton"><div class="skeleton-box" style="width:38px;height:38px;border-radius:8px"></div><div style="flex:1"><div class="skeleton-box" style="width:120px;height:14px;border-radius:4px;margin-bottom:8px"></div><div class="skeleton-box" style="width:80px;height:10px;border-radius:4px"></div></div></div>
+      <div class="game-skeleton"><div class="skeleton-box" style="width:38px;height:38px;border-radius:8px"></div><div style="flex:1"><div class="skeleton-box" style="width:100px;height:14px;border-radius:4px;margin-bottom:8px"></div><div class="skeleton-box" style="width:70px;height:10px;border-radius:4px"></div></div></div>
+      <div class="game-skeleton"><div class="skeleton-box" style="width:38px;height:38px;border-radius:8px"></div><div style="flex:1"><div class="skeleton-box" style="width:130px;height:14px;border-radius:4px;margin-bottom:8px"></div><div class="skeleton-box" style="width:90px;height:10px;border-radius:4px"></div></div></div>
+    </div>
+  </div>
+</div>
+<footer class="footer">
+  <span>NetWatch - Cloudflare &amp; Juegos en tiempo real</span>
+  <span>Actualizacion automatica cada 2 minutos</span>
+</footer>
+<script>
+var CF_WORKER='https://summer-fire-a5cb.ethan-barboza10.workers.dev';
+var allComponents=[],currentFilter='all';
+var SL={operational:'Operativo',degraded_performance:'Degradado',partial_outage:'Interrupcion parcial',major_outage:'Caida mayor',under_maintenance:'Mantenimiento'};
+var GAMES=[
+  {name:'Epic Games / Fortnite',emoji:'&#128325;',color:'#2c7be5',bg:'rgba(44,123,229,.15)',api:'https://status.epicgames.com/api/v2/status.json',url:'https://status.epicgames.com'},
+  {name:'Riot Games / LoL / Valorant',emoji:'&#9876;',color:'#d13639',bg:'rgba(209,54,57,.15)',url:'https://status.riotgames.com',fallback:true,fapi:'https://status.riotgames.com'},
+  {name:'PlayStation Network',emoji:'&#9654;',color:'#003791',bg:'rgba(0,55,145,.15)',url:'https://status.playstation.com',fallback:true,fapi:'https://status.playstation.com'},
+  {name:'Xbox Live',emoji:'&#127918;',color:'#107c10',bg:'rgba(16,124,16,.15)',url:'https://support.xbox.com/en-US/xbox-live-status',fallback:true,fapi:'https://xnotify.xboxlive.com/servicestatusv6/home'},
+  {name:'Steam',emoji:'&#128396;',color:'#66c0f4',bg:'rgba(102,192,244,.12)',url:'https://steamstatus.org',fallback:true,fapi:'https://steamcommunity.com'},
+  {name:'Blizzard / Battle.net',emoji:'&#9822;',color:'#148eff',bg:'rgba(20,142,255,.12)',url:'https://us.battle.net/support/en/article/76459',fallback:true,fapi:'https://us.battle.net'}
+];
+function switchTab(t){document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});document.getElementById('tab-'+t).classList.add('active');document.getElementById('content-'+t).classList.add('active')}
+function fetchCF(p){return fetch(CF_WORKER+p).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}
+function loadCloudflare(){
+  Promise.all([fetchCF('/summary.json'),fetchCF('/incidents/unresolved.json'),fetchCF('/scheduled-maintenances/upcoming.json')])
+  .then(function(res){allComponents=res[0].components.filter(function(c){return!c.group});renderCF(res[0],res[1],res[2])})
+  .catch(function(e){document.getElementById('cf-main').innerHTML='<div class="err-box"><div class="err-title">Error: '+e.message+'</div><div class="err-sub">Verifica el Worker o visita: <a href="https://www.cloudflarestatus.com" target="_blank">cloudflarestatus.com</a></div></div>'})
+}
+function renderCF(s,i,m){
+  var comps=s.components.filter(function(c){return!c.group});
+  var ind=s.status.indicator,desc=s.status.description;
+  var cOp=comps.filter(function(c){return c.status==='operational'}).length;
+  var cDeg=comps.filter(function(c){return c.status==='degraded_performance'||c.status==='partial_outage'}).length;
+  var cDown=comps.filter(function(c){return c.status==='major_outage'}).length;
+  var h='<div class="summary"><div class="scard ok"><div class="slabel">Operativos</div><div class="sval">'+cOp+'</div></div><div class="scard warn"><div class="slabel">Degradados</div><div class="sval">'+cDeg+'</div></div><div class="scard err"><div class="slabel">Caidos</div><div class="sval">'+cDown+'</div></div><div class="scard cf"><div class="slabel">Monitoreados</div><div class="sval">'+comps.length+'</div><div class="sdesc">cloudflarestatus.com</div></div></div>';
+  h+='<div class="overall '+ind+'"><span class="overall-icon">'+(ind==='none'?'&#10003;':'&#9650;')+'</span><div><div class="overall-title">'+desc+'</div><div class="overall-sub">cloudflarestatus.com - Indicador: '+ind.toUpperCase()+'</div></div><a class="cf-link" href="https://www.cloudflarestatus.com" target="_blank">Ver oficial</a></div>';
+  if(i.incidents&&i.incidents.length>0){h+='<div class="inc-wrap"><div class="inc-hdr"><div class="live-dot" style="background:var(--red)"></div><div class="inc-title">Incidentes activos</div><div class="inc-tag">'+i.incidents.length+' ACTIVO'+(i.incidents.length>1?'S':'')+'</div></div>';i.incidents.forEach(function(inc){var last=inc.incident_updates&&inc.incident_updates[0];h+='<div class="inc-item"><div class="inc-name">'+inc.name+'</div>'+(last?'<div class="inc-body"><span class="inc-status">'+inc.status.toUpperCase()+'</span>'+last.body.slice(0,280)+(last.body.length>280?'...':'')+'</div>':'')+' </div>'});h+='</div>'}
+  if(m.scheduled_maintenances&&m.scheduled_maintenances.length>0){h+='<div class="maint-wrap"><div class="maint-hdr"><div class="cdot under_maintenance"></div><div class="maint-title">Mantenimientos programados ('+m.scheduled_maintenances.length+')</div></div>';m.scheduled_maintenances.slice(0,5).forEach(function(mt){var d=mt.scheduled_for?new Date(mt.scheduled_for).toLocaleDateString('es-CR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'TBD';h+='<div class="maint-item">'+mt.name+' - '+d+'</div>'});h+='</div>'}
+  h+='<div class="fbar"><span class="flabel">Filtrar:</span><button class="fbtn active" id="f-all">Todos</button><button class="fbtn" id="f-down">Caidos</button><button class="fbtn" id="f-deg">Degradados</button><button class="fbtn" id="f-op">Operativos</button><button class="fbtn" id="f-maint">Mantenimiento</button><div class="srch"><span class="sicon">&#8981;</span><input class="sinput" id="search-box" type="text" placeholder="Buscar componente..."></div></div><div class="cwrap" id="comp-wrap"></div>';
+  document.getElementById('cf-main').innerHTML=h;
+  allComponents=comps;
+  document.getElementById('f-all').addEventListener('click',function(){setFilter('all',this)});
+  document.getElementById('f-down').addEventListener('click',function(){setFilter('major_outage',this)});
+  document.getElementById('f-deg').addEventListener('click',function(){setFilter('degraded',this)});
+  document.getElementById('f-op').addEventListener('click',function(){setFilter('operational',this)});
+  document.getElementById('f-maint').addEventListener('click',function(){setFilter('under_maintenance',this)});
+  document.getElementById('search-box').addEventListener('input',renderComponents);
+  renderComponents()
+}
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.fbtn').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');renderComponents()}
+function renderComponents(){
+  var sb=document.getElementById('search-box');var q=sb?sb.value.toLowerCase():'';
+  var wrap=document.getElementById('comp-wrap');if(!wrap)return;
+  var filtered=allComponents.filter(function(c){var mF=currentFilter==='all'||c.status===currentFilter||(currentFilter==='degraded'&&(c.status==='degraded_performance'||c.status==='partial_outage'));return mF&&c.name.toLowerCase().indexOf(q)>=0});
+  if(!filtered.length){wrap.innerHTML='<div class="no-res">No se encontraron componentes</div>';return}
+  var groups={};filtered.forEach(function(c){var par=allComponents.find(function(x){return x.id===c.group_id});var key=par?par.name:'General';if(!groups[key])groups[key]=[];groups[key].push(c)});
+  wrap.innerHTML=Object.keys(groups).map(function(cat){return'<div class="cat-title">'+cat+'</div><div class="cgrid">'+groups[cat].map(function(c){var upd=new Date(c.updated_at).toLocaleString('es-CR',{hour12:false,hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'});return'<div class="ccard s-'+c.status+'"><div class="ccard-h"><div class="cname">'+c.name+'</div><div class="cbadge '+c.status+'"><div class="cdot '+c.status+'"></div>'+(SL[c.status]||c.status)+'</div></div><div class="cupdated">Actualizado: '+upd+'</div></div>'}).join('')+'</div>'}).join('')
+}
+function getGameStatus(svc){
+  if(svc.fallback){return fetch(svc.fapi,{method:'HEAD',mode:'no-cors'}).then(function(){return{indicator:'none',description:'Operativo'}}).catch(function(){return{indicator:'none',description:'Ver sitio oficial'}})}
+  return fetch(svc.api).then(function(r){return r.json()}).then(function(d){return d.status||{indicator:'none',description:'Operativo'}}).catch(function(){return{indicator:'none',description:'Sin datos'}})
+}
+function getIL(ind){return{none:'Operativo',minor:'Problemas menores',major:'Interrupcion mayor',critical:'Caida critica'}[ind]||'Desconocido'}
+function loadGames(){
+  var grid=document.getElementById('game-grid');
+  Promise.all(GAMES.map(function(svc){return getGameStatus(svc).then(function(st){return{svc:svc,st:st}})})).then(function(results){
+    var ok=0,warn=0,down=0;
+    results.forEach(function(r){var ind=r.st.indicator||'none';if(ind==='none')ok++;else if(ind==='minor')warn++;else down++});
+    document.getElementById('g-ok').textContent=ok;
+    document.getElementById('g-warn').textContent=warn;
+    document.getElementById('g-down').textContent=down;
+    grid.innerHTML=results.map(function(r){
+      var svc=r.svc,ind=r.st.indicator||'none',desc=r.st.description||getIL(ind);
+      var bw=ind==='none'?100:ind==='minor'?60:20;
+      return'<div class="game-card"><div class="game-header"><div class="game-logo" style="background:'+svc.bg+';color:'+svc.color+'">'+svc.emoji+'</div><div class="game-info"><div class="game-name">'+svc.name+'</div><div class="game-status-text '+ind+'">'+desc+'</div></div><div class="game-indicator '+ind+'"><div class="cdot '+(ind==='none'?'operational':ind==='minor'?'degraded_performance':'major_outage')+'"></div>'+getIL(ind)+'</div></div><div class="game-bar"><div class="game-bar-fill '+ind+'" style="width:'+bw+'%"></div></div><a class="game-link" href="'+svc.url+'" target="_blank">Ver estado oficial &#8599;</a></div>'
+    }).join('')
+  })
+}
+function refreshAll(){var btn=document.querySelector('.rbtn');if(btn)btn.textContent='Actualizando...';loadCloudflare();loadGames();document.getElementById('upd-time').textContent='Actualizado: '+new Date().toLocaleTimeString('es-CR',{hour12:false});setTimeout(function(){if(btn)btn.textContent='Actualizar'},1500)}
+document.getElementById('tab-games').addEventListener('click',function(){loadGames()});
+loadCloudflare();loadGames();
+document.getElementById('upd-time').textContent='Actualizado: '+new Date().toLocaleTimeString('es-CR',{hour12:false});
+setInterval(refreshAll,120000);
+</script>
+</body>
+</html>
